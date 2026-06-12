@@ -9,7 +9,7 @@ Each conversation exists as a node on an infinite canvas. Nodes can be linked to
 
 ## Following image can help visualize it
 
-<img width="1578" height="1153" alt="main ui wireframe" src="https://github.com/user-attachments/assets/290c39c7-cb7b-4371-9aad-73e11b81b82d" />
+<img width="1578" height="1153" alt="main ui wireframe" src="https://github.com/user-attachments/assets/46c9e156-2ff2-442e-998d-c38fb99dc7f6" />
 
 ## Current MVP Progress
 
@@ -83,7 +83,7 @@ This allows related conversations to influence each other while remaining indepe
 
 ## Database Model
 
-<img width="2816" height="1536" alt="ERD" src="https://github.com/user-attachments/assets/79435ffb-89a4-4a68-83ed-4df65747aeae" />
+<img width="2816" height="1536" alt="ERD" src="https://github.com/user-attachments/assets/2fc3dc27-a233-4659-89bf-76ea0c997fd0" />
 
 ## Project Status
 
