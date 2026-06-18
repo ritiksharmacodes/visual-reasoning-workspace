@@ -6,11 +6,13 @@ type CanvasStore = {
   edges: Edge[];
   isLoading: boolean;
 
-  addNode: (node: Node) => void;
-  updateNodeStatus: (node: Node, result: any) => void;
-  removeNode: (nodeID: string) => void;
   setNodes: (nodes: Node[]) => void;
+  addNode: (node: Node) => void;
+  removeNode: (nodeID: string) => void;
+  updateNodeStatus: (node: Node, result: any) => void;
   setEdges: (edges: Edge[]) => void;
+  addEdge: (edge: Edge) => void;
+  removeEdge: (edgeID: string) => void;
 };
 
 export const useCanvasStore = create<CanvasStore>((set) => ({
@@ -22,6 +24,13 @@ export const useCanvasStore = create<CanvasStore>((set) => ({
     nodes: [
       ...state.nodes,
       node
+    ],
+  })),
+
+  addEdge: (edge) => set((state) => ({
+    edges: [
+      ...state.edges,
+      edge
     ],
   })),
 
@@ -39,6 +48,12 @@ export const useCanvasStore = create<CanvasStore>((set) => ({
     const nodes = state.nodes.filter((node) => node.id !== nodeID);
     return { nodes };
   }),
+
+  removeEdge: (edgeId: string) => set((state) => ({
+    edges: state.edges.filter(
+      (edge) => edge.id !== edgeId
+    ),
+  })),
 
   setNodes: (nodes) => set({ nodes }),
 

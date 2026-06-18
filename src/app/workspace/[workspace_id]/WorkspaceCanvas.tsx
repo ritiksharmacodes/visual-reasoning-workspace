@@ -7,52 +7,53 @@ import {
     ReactFlow,
     applyNodeChanges,
     OnNodeDrag,
-    addEdge,
     Connection,
     type NodeChange,
+    type Edge,
+    applyEdgeChanges,
+    EdgeChange,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import ConversationNode from "@/components/nodes/ConversationNode";
 import { useCanvasStore } from "@/stores/canvasStore";
 import type { Node } from "@xyflow/react";
 import { useEffect, useCallback, useState } from "react";
-import { insert_node, update_node_position, update_workspace_viewport } from "@/actions";
+import {
+    insert_node,
+    update_node_position,
+    update_workspace_viewport,
+    insert_edge,
+    delete_edge
+} from "@/actions";
 import toast, { Toaster } from 'react-hot-toast';
 import { WorkspaceType } from "@/types";
 import debounce from "lodash/debounce";
+import { useFormState } from "react-dom";
 
 
 type WorkspaceCanvasProps = {
     fetchedNodes: Node[];
     workspaceData: WorkspaceType;
+    fetchedEdges: Edge[];
 }
 
 export default function WorkspaceCanvas({
     fetchedNodes,
-    workspaceData
+    workspaceData,
+    fetchedEdges,
 }: WorkspaceCanvasProps) {
-
+    
+    const { nodes, setNodes, addNode, updateNodeStatus, removeNode, edges, addEdge, setEdges, removeEdge } = useCanvasStore();
     const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
-
-    useEffect(() => {
-        if (!reactFlowInstance) return;
-
-        reactFlowInstance.setViewport({
-            x: workspaceData.viewportX,
-            y: workspaceData.viewportY,
-            zoom: workspaceData.viewportZoom,
-        });
-    }, [reactFlowInstance, workspaceData]);
-
-    const { nodes, setNodes, addNode, updateNodeStatus, removeNode, edges, setEdges } = useCanvasStore();
-
-    useEffect(() => {
-        setNodes(fetchedNodes);
-    }, [fetchedNodes, setNodes]);
-
     const nodeTypes = {
         conversation: ConversationNode,
     };
+
+    useEffect(() => {
+        setNodes(fetchedNodes);
+        setEdges(fetchedEdges);
+    }, [fetchedNodes, fetchedEdges, setNodes, setEdges]);
+
 
     const onNodesChange = (
         changes: NodeChange[]
@@ -105,54 +106,110 @@ export default function WorkspaceCanvas({
     };
 
     const onConnect = useCallback(
-  (connection: Connection) => {
-    setEdges(
-      addEdge(connection, edges)
+        async (connection: Connection) => {
+            const edgeId = crypto.randomUUID();
+
+            const tempEdge = {
+                id: edgeId,
+                source: connection.source!,
+                target: connection.target!,
+            };
+
+            // Optimistic UI
+            addEdge(tempEdge);
+
+            try {
+                await insert_edge({
+                    edgeID: edgeId,
+                    workspaceId: workspaceData.id,
+                    sourceNodeId: connection.source!,
+                    targetNodeId: connection.target!,
+                });
+
+            } catch (error) {
+                removeEdge(edgeId);
+                alert("Failed to create edge");
+            }
+        },
+        [edges, addEdge, removeEdge, workspaceData.id]
     );
-  },
-  [edges, setEdges]
-);
+
+    const onEdgesChange = useCallback(async (changes: EdgeChange[]) => {
+        const deletedEdges = changes
+            .filter((change) => change.type === "remove")
+            .map((change) =>
+                edges.find((edge) => edge.id === change.id)
+            )
+            .filter(Boolean);
+
+        // optimistic UI
+        setEdges(
+            applyEdgeChanges(
+                changes,
+                edges
+            )
+        );
+
+        for (const edge of deletedEdges) {
+            try {
+                await delete_edge(edge!.id);
+            } catch {
+
+                addEdge(edge!);
+                alert(
+                    "Failed to delete edge"
+                );
+            }
+        }
+
+    },
+        [edges, setEdges, addEdge,]
+    );
+
+    
+
+    // onClick={async () => {
+    //                 const tempNode: Node = {
+    //                     id: crypto.randomUUID(),
+    //                     type: "conversation",
+    //                     position: {
+    //                         x: 200,
+    //                         y: 200,
+    //                     },
+    //                     style: {
+    //                         width: 300,
+    //                         height: 250,
+    //                     },
+    //                     data: {
+    //                         title: "Untitled Node",
+    //                         summary: "summary will come here",
+    //                         status: "saving",
+    //                         workspace_id: workspaceData.id,
+    //                     }
+    //                 };
+
+    //                 addNode(tempNode);
+    //                 const result = await insert_node(tempNode);
+
+    //                 if ("error" in result) {
+    //                     removeNode(tempNode.id);
+    //                     alert("Failed to create node");
+    //                 } else {
+    //                     updateNodeStatus(tempNode, result);
+    //                 }
+    //             }}
 
     return (
         <div className="h-screen w-screen">
             <Toaster />
-            <button
-                className="absolute top-4 left-4 z-50 rounded bg-black px-4 py-2 text-white"
-                onClick={async () => {
-                    const tempNode: Node = {
-                        id: crypto.randomUUID(),
-                        type: "conversation",
-                        position: {
-                            x: 200,
-                            y: 200,
-                        },
-                        style: {
-                            width: 300,
-                            height: 250,
-                        },
-                        data: {
-                            title: "Untitled Node",
-                            summary: "summary will come here",
-                            status: "saving",
-                            workspace_id: workspaceData.id,
-                        }
-                    };
-
-                    addNode(tempNode);
-                    const result = await insert_node(tempNode);
-
-                    if ("error" in result) {
-                        removeNode(tempNode.id);
-                        alert("Failed to create node");
-                    } else {
-                        updateNodeStatus(tempNode, result);
-                    }
-                }}
-            >
-                New Node
-            </button>
 
             <ReactFlow
+                defaultViewport={{
+                    x: workspaceData.viewportX,
+                    y: workspaceData.viewportY,
+                    zoom: workspaceData.viewportZoom,
+                }}
+                onEdgesChange={onEdgesChange}
                 nodes={nodes}
                 edges={edges}
                 onConnect={onConnect}
@@ -161,6 +218,7 @@ export default function WorkspaceCanvas({
                 onNodeDragStop={handleNodeDragStop}
                 onMoveEnd={handleMoveEnd}
                 onInit={setReactFlowInstance}
+                deleteKeyCode={["Backspace", "Delete"]}
             >
                 <Background />
                 <Controls />
